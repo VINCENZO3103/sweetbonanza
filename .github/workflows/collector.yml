@@ -9,7 +9,7 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 355  # 5h 55m (il limite è ~6h)
+    timeout-minutes: 355  # 5h55m (GitHub max ≈ 6h)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,17 +19,26 @@ jobs:
         with:
           node-version: "20"
 
+      # 👇 FIX: se c'è package-lock usa npm ci, altrimenti npm install
       - name: Install deps
-        run: npm ci --omit=dev
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "Using npm ci"
+            npm ci --omit=dev
+          else
+            echo "Using npm install (no package-lock.json found)"
+            npm install --omit=dev
+          fi
 
       - name: Start collector (keep alive)
         run: |
           node collector.js &
           PID=$!
           echo "Collector PID: $PID"
-          # Mantieni vivo per 355 minuti con un "tick" ogni minuto
+          # Mantieni vivo il job per 355 minuti
           for i in $(seq 1 355); do
-            echo "tick $i"; sleep 60;
+            echo "tick $i"
+            sleep 60
           done
           echo "Stopping..."
           kill $PID || true
